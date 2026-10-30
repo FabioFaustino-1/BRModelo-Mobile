@@ -4,6 +4,14 @@
 
 O **BRMM (BRModelo Mobile)** adota uma arquitetura em camadas orientada a componentes, com abordagem **Local-First (100% Offline)**. Toda a computação, manipulação de regras de negócio e armazenamento residem exclusivamente no dispositivo móvel do usuário.
 
+### 1.1. Escopo da Modelagem
+O MVP foca na **modelagem relacional lógica** de bancos de dados:
+- Criação e gestão de projetos isolados.
+- Criação de entidades (tabelas) com nomes únicos por projeto.
+- Definição de atributos com tipos relacionais (`INTEGER`, `VARCHAR`, `TEXT`, `REAL`, `DECIMAL`, `BOOLEAN`, `DATE`, `DATETIME`), indicador de chave primária (`PK`) e nulidade (`NOT NULL`).
+- Estabelecimento de relacionamentos estruturados entre entidades com cardinalidades (`1:1`, `1:N`, `N:N`).
+- **Fora do escopo:** Geração automática de scripts SQL/DDL externos, canvas livre vetorial com arraste bidimensional e sincronização em nuvem.
+
 ```mermaid
 graph TD
     UI[Interface do Usuário / Camada de Apresentação]
@@ -82,15 +90,15 @@ brmodelo-mobile/
 
 ## 4. Modelagem de Dados Local (Schema SQLite)
 
-O banco de dados SQLite interno do aplicativo armazena as estruturas criadas pelo usuário. O esquema relacional do banco interno é composto por 4 tabelas fundamentais:
+O banco de dados SQLite interno do aplicativo armazena as estruturas criadas pelo usuário. O esquema relacional é composto por 4 tabelas de domínio e 1 tabela de metadados para versionamento:
 
 ```mermaid
 erDiagram
-    PROJECT ||--o{ ENTITY : "possui"
-    PROJECT ||--o{ RELATIONSHIP : "contém"
-    ENTITY ||--o{ ATTRIBUTE : "possui"
-    ENTITY ||--o{ RELATIONSHIP : "origem"
-    ENTITY ||--o{ RELATIONSHIP : "destino"
+    PROJECT ||--o{ ENTITY : "possui (CASCADE)"
+    PROJECT ||--o{ RELATIONSHIP : "contém (CASCADE)"
+    ENTITY ||--o{ ATTRIBUTE : "possui (CASCADE)"
+    ENTITY ||--o{ RELATIONSHIP : "participa como entity_a"
+    ENTITY ||--o{ RELATIONSHIP : "participa como entity_b"
 
     PROJECT {
         TEXT id PK
@@ -103,6 +111,8 @@ erDiagram
         TEXT id PK
         TEXT project_id FK
         TEXT name
+        TEXT created_at
+        TEXT updated_at
     }
 
     ATTRIBUTE {
@@ -111,69 +121,108 @@ erDiagram
         TEXT name
         TEXT data_type
         INTEGER is_primary_key
-        INTEGER is_required
+        INTEGER is_not_null
+        TEXT created_at
+        TEXT updated_at
     }
 
     RELATIONSHIP {
         TEXT id PK
         TEXT project_id FK
-        TEXT source_entity_id FK
-        TEXT target_entity_id FK
-        TEXT relationship_type
+        TEXT name
+        TEXT entity_a_id FK
+        TEXT entity_b_id FK
+        TEXT cardinality
+        TEXT created_at
+        TEXT updated_at
     }
 ```
 
 ### 4.1. Definições das Tabelas DDL
 
-1. **Tabela `projects`:**
+1. **Tabela de Controle `__migrations`:**
+   ```sql
+   CREATE TABLE IF NOT EXISTS __migrations (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       version INTEGER UNIQUE NOT NULL,
+       name TEXT NOT NULL,
+       applied_at TEXT NOT NULL
+   );
+   ```
+
+2. **Tabela `projects`:**
    ```sql
    CREATE TABLE IF NOT EXISTS projects (
-       id TEXT PRIMARY KEY,
-       name TEXT NOT NULL,
+       id TEXT PRIMARY KEY NOT NULL,
+       name TEXT NOT NULL CHECK(length(trim(name)) > 0),
        created_at TEXT NOT NULL,
        updated_at TEXT NOT NULL
    );
    ```
 
-2. **Tabela `entities`:**
+3. **Tabela `entities`:**
    ```sql
    CREATE TABLE IF NOT EXISTS entities (
-       id TEXT PRIMARY KEY,
+       id TEXT PRIMARY KEY NOT NULL,
        project_id TEXT NOT NULL,
-       name TEXT NOT NULL,
-       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+       name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+       created_at TEXT NOT NULL,
+       updated_at TEXT NOT NULL,
+       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+       UNIQUE (project_id, name COLLATE NOCASE),
+       UNIQUE (id, project_id)
    );
    ```
 
-3. **Tabela `attributes`:**
+4. **Tabela `attributes`:**
    ```sql
    CREATE TABLE IF NOT EXISTS attributes (
-       id TEXT PRIMARY KEY,
+       id TEXT PRIMARY KEY NOT NULL,
        entity_id TEXT NOT NULL,
-       name TEXT NOT NULL,
-       data_type TEXT NOT NULL,
-       is_primary_key INTEGER NOT NULL DEFAULT 0,
-       is_required INTEGER NOT NULL DEFAULT 0,
-       FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE
+       name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+       data_type TEXT NOT NULL CHECK(data_type IN ('INTEGER', 'VARCHAR', 'TEXT', 'REAL', 'DECIMAL', 'BOOLEAN', 'DATE', 'DATETIME')),
+       is_primary_key INTEGER NOT NULL DEFAULT 0 CHECK(is_primary_key IN (0, 1)),
+       is_not_null INTEGER NOT NULL DEFAULT 0 CHECK(is_not_null IN (0, 1)),
+       created_at TEXT NOT NULL,
+       updated_at TEXT NOT NULL,
+       FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+       UNIQUE (entity_id, name COLLATE NOCASE)
    );
    ```
 
-4. **Tabela `relationships`:**
+5. **Tabela `relationships`:**
    ```sql
    CREATE TABLE IF NOT EXISTS relationships (
-       id TEXT PRIMARY KEY,
+       id TEXT PRIMARY KEY NOT NULL,
        project_id TEXT NOT NULL,
-       source_entity_id TEXT NOT NULL,
-       target_entity_id TEXT NOT NULL,
-       relationship_type TEXT NOT NULL,
+       name TEXT,
+       entity_a_id TEXT NOT NULL,
+       entity_b_id TEXT NOT NULL,
+       cardinality TEXT NOT NULL CHECK(cardinality IN ('1:1', '1:N', 'N:N')),
+       created_at TEXT NOT NULL,
+       updated_at TEXT NOT NULL,
+       CHECK (entity_a_id <> entity_b_id),
        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-       FOREIGN KEY (source_entity_id) REFERENCES entities(id) ON DELETE CASCADE,
-       FOREIGN KEY (target_entity_id) REFERENCES entities(id) ON DELETE CASCADE
+       FOREIGN KEY (entity_a_id, project_id) REFERENCES entities(id, project_id) ON DELETE CASCADE,
+       FOREIGN KEY (entity_b_id, project_id) REFERENCES entities(id, project_id) ON DELETE CASCADE
    );
    ```
 
-> [!NOTE]
-> `PRAGMA foreign_keys = ON;` é ativado em todas as conexões SQLite para garantir a integridade referencial e o comportamento de `ON DELETE CASCADE`.
+### 4.2. Regras de Integridade e Decisões de Modelagem
+- **Integridade Referencial Composta:** As chaves estrangeiras `(entity_a_id, project_id)` e `(entity_b_id, project_id)` referenciam a chave única composta `(id, project_id)` da tabela `entities`. Isso impede a inserção de relacionamentos entre entidades de projetos distintos diretamente na engine do SQLite.
+- **Unicidade Case-Insensitive:** As restrições `UNIQUE (project_id, name COLLATE NOCASE)` e `UNIQUE (entity_id, name COLLATE NOCASE)` impedem a criação de nomes duplicados que variem apenas por maiúsculas/minúsculas.
+- **Restrição de Autorrelacionamento no MVP:** O `CHECK (entity_a_id <> entity_b_id)` proíbe relacionamentos reflexivos no MVP.
+- **Tipos de Dados Relacionais Permitidos:** `INTEGER`, `VARCHAR`, `TEXT`, `REAL`, `DECIMAL`, `BOOLEAN`, `DATE`, `DATETIME`.
+- **Cardinalidades Aceitas:** `1:1`, `1:N`, `N:N`.
+- **Política de Exclusão (CASCADE):**
+  - A exclusão de um projeto remove em cascata todas as suas entidades, atributos e relacionamentos.
+  - A exclusão de uma entidade remove em cascata todos os seus atributos e todos os relacionamentos em que ela participe como `entity_a` ou `entity_b`.
+  - A exclusão de um atributo não afeta outros atributos nem a entidade pai.
+
+### 4.3. Estratégia de Inicialização e Migrations
+- **Inicialização Idempotente:** A função `initDatabase()` executa `PRAGMA foreign_keys = ON;`, verifica a tabela de controle `__migrations` e aplica apenas as migrações cujo número de versão ainda não esteja registrado.
+- **Transacionalidade:** Cada migração é executada dentro de uma transação atômica (`withTransactionAsync`). Se ocorrer qualquer erro, o `ROLLBACK` é acionado e a versão não é registrada.
+- **Persistência de Versão:** Além do registro na tabela `__migrations`, o `PRAGMA user_version` nativo do SQLite é atualizado.
 
 ---
 
@@ -192,13 +241,12 @@ erDiagram
 
 ## 6. Plano de Testes Automatizados
 
-1. **Testes Unitários:**
-   - Foco nas funções utilitárias (`utils/validation.js`, `utils/formatters.js`).
-   - Foco nos serviços de domínio (`services/projectService.js`, etc.), validando regras de unicidade de nomes, tipos permitidos e integridade referencial.
-2. **Framework de Testes:**
-   - **Jest**: Motor de execução de testes, mocks e asserções.
-3. **Mocks de Persistência:**
-   - Simulação da camada de banco de dados (`expo-sqlite`) em ambiente Node de testes para permitir testes de serviço ágeis e determinísticos sem necessidade de emulador móvel.
+1. **Testes de Persistência e Regras de Negócio (Implementados):**
+   - Suíte automatizada com 15 cenários em `tests/persistence.test.js`.
+   - Executada com o runner nativo do Node.js (`node --test tests/**/*.test.js`), sem necessidade de download de dependências externas.
+   - Valida contra banco SQLite real em memória (`useMemory: true`), cobrindo integridade referencial, constraints compostas, ordenações, concorrência, idempotência e deleção em cascata.
+2. **Testes de Componentes Visuais (Planejado):**
+   - Configuração do **Jest** e **React Native Testing Library** para validação das interações de toque nas telas do MVP quando forem desenvolvidas.
 
 ---
 

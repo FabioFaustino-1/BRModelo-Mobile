@@ -19,14 +19,16 @@ Isso gera barreiras para estudantes em deslocamento, salas de aula sem acesso im
 ---
 
 ## 3. Objetivo do MVP
-O MVP (Produto Mínimo Viável) tem por finalidade disponibilizar uma experiência mobile enxuta, confiável e **100% offline**, permitindo:
-- Criar e listar projetos de modelagem.
+O MVP (Produto Mínimo Viável) tem por finalidade disponibilizar uma experiência mobile enxuta, confiável e **100% offline**, focada na **modelagem relacional lógica** de banco de dados:
+- Criar e listar projetos de modelagem isolados.
 - Abrir e continuar trabalhando em modelos existentes.
-- Criar entidades com nomes únicos no projeto.
-- Definir atributos com tipos de dados, indicação de chave primária (`PK`) e obrigatoriedade (`NOT NULL`).
-- Estabelecer relacionamentos entre entidades com seleção de cardinalidade (`1:1`, `1:N`, `N:N`).
-- Persistir dados localmente no dispositivo via **SQLite**, garantindo integridade e recuperação após fechar o aplicativo.
+- Criar entidades com nomes únicos no contexto do projeto.
+- Definir atributos com tipos de dados relacionais (`INTEGER`, `VARCHAR`, `TEXT`, `REAL`, `DECIMAL`, `BOOLEAN`, `DATE`, `DATETIME`), indicação de chave primária (`PK`) e nulidade (`NOT NULL`).
+- Estabelecer relacionamentos entre entidades com seleção de cardinalidade (`1:1`, `1:N`, `N:N`), prevenindo autorrelacionamentos e associações entre projetos diferentes.
+- Persistir dados localmente no dispositivo via **SQLite**, garantindo integridade referencial com chaves estrangeiras ativas e remoção em cascata (`CASCADE`).
 - Excluir projetos com diálogo de confirmação explícita.
+
+> **Nota de Escopo:** O MVP não contempla editor vetorial com posicionamento 2D livre (canvas de desenho), geração automática de SQL/DDL ou backend em nuvem. A interface prioriza formulários e cartões estruturados adaptados para o toque no celular.
 
 ---
 
@@ -44,9 +46,9 @@ A documentação completa de engenharia de software do BRMM está organizada no 
 
 ## 5. Tecnologias Utilizadas
 
-- **Framework Mobile:** [React Native](https://reactnative.dev/) com [Expo](https://expo.dev/)
+- **Framework Mobile:** [React Native](https://reactnative.dev/) (0.88.1) com [Expo](https://expo.dev/) (SDK 58)
 - **Linguagem:** JavaScript (ES6+) — sem TypeScript no MVP
-- **Banco de Dados Local:** SQLite via biblioteca oficial [`expo-sqlite`](https://docs.expo.dev/versions/latest/sdk/sqlite/)
+- **Banco de Dados Local:** SQLite via biblioteca oficial [`expo-sqlite`](https://docs.expo.dev/versions/latest/sdk/sqlite/) (~58.0.14)
 - **Estilização:** StyleSheet nativo do React Native
 - **Controle de Versão:** [Git](https://git-scm.com/) e [GitHub](https://github.com/)
 - **Qualidade de Código:** [ESLint](https://eslint.org/)
@@ -93,15 +95,15 @@ Para manter a máxima transparência com a evolução do projeto, o status das f
 
 | Funcionalidade / Artefato | Status | Observação |
 | :--- | :---: | :--- |
-| **Documentação de Engenharia (docs/ 01 a 06)** | ✅ **Implementado e Testado** | Todos os 6 documentos concluídos, revisados e consistentes. |
-| **Estrutura Base do Repositório e .gitignore** | ✅ **Implementado e Testado** | Organização de pastas e regras de versionamento definidas. |
-| **Configuração Inicial do Projeto Expo (`brmodelo-mobile`)** | 🟡 **Em Desenvolvimento** | Estruturação de manifesto, scripts e ponto de entrada da aplicação. |
-| **Módulo de Conexão e Schema SQLite (`src/database`)** | ⏳ **Planejado** | Criação das tabelas `projects`, `entities`, `attributes`, `relationships`. |
-| **Serviços e Validações de Domínio (`src/services`, `src/utils`)** | ⏳ **Planejado** | Implementação com testes unitários em Jest. |
-| **Telas de Gestão de Projetos (`HomeScreen`, `ProjectScreen`)** | ⏳ **Planejado** | Criação, listagem e exclusão com diálogo de confirmação. |
-| **Telas de Entidades e Atributos (`EntityScreen`)** | ⏳ **Planejado** | Definição de nomes, tipos de dados e indicadores de PK / NOT NULL. |
-| **Telas de Relacionamentos (`RelationshipScreen`)** | ⏳ **Planejado** | Associação entre entidades do projeto e cardinalidade. |
-| **Pipeline de CI/CD (GitHub Actions) e ESLint** | ⏳ **Planejado** | Automação de lint e testes em `.github/workflows/ci.yml`. |
+| **Documentação de Engenharia (`docs/` 01 a 06)** | ✅ **Implementado e Testado** | Todos os 6 documentos concluídos, revisados e consistentes. |
+| **Estrutura Base do Repositório e `.gitignore`** | ✅ **Implementado e Testado** | Organização de pastas e regras de versionamento definidas. |
+| **Camada de Persistência SQLite (`src/database`)** | ✅ **Implementado e Testado** | Conexão (`index.js`), DDL completo (`schema.js`), migrations e integridade referencial com chaves compostas e `CASCADE`. |
+| **Repositórios de Persistência (`src/database/repositories`)** | ✅ **Implementado e Testado** | CRUD parametrizado completo para projetos, entidades, atributos e relacionamentos com modelos tipados em `src/models/`. |
+| **Testes Automatizados de Persistência (`tests/`)** | ✅ **Implementado e Testado** | 15 cenários automatizados cobrindo todas as operações, constraints e integridade via `node --test` contra SQLite real. |
+| **Interface Inicial de Demonstração (`App.js`)** | ✅ **Implementado e Testado** | Inicialização do banco, verificação de migrações e persistência interativa via Expo. |
+| **Telas Finais de Modelagem (`HomeScreen`, `ProjectScreen`, etc.)** | ⏳ **Planejado** | Fluxos completos de telas dedicadas de edição e diagramação. |
+| **Configuração de ESLint e Jest para UI** | ⏳ **Planejado** | Análise estática e testes unitários de componentes visuais. |
+| **Pipeline de CI/CD (GitHub Actions)** | ⏳ **Planejado** | Automação de lint e testes em `.github/workflows/ci.yml`. |
 
 > **Legenda:**  
 > - ✅ **Implementado e testado:** Funcionalidade concluída, verificada e documentada.  
@@ -113,8 +115,8 @@ Para manter a máxima transparência com a evolução do projeto, o status das f
 ## 8. Como Executar o Projeto Localmente
 
 ### Pré-requisitos
-- [Node.js](https://nodejs.org/) versão 18+ ou 20+ instalada.
-- [npm](https://www.npmjs.com/) ou [yarn](https://yarnpkg.com/).
+- [Node.js](https://nodejs.org/) versão 20+ ou 24+ instalada.
+- [npm](https://www.npmjs.com/).
 - Dispositivo físico móvel com o aplicativo **Expo Go** instalado (disponível no Google Play ou Apple App Store) **OU** emulador configurado (Android Studio / Xcode).
 
 ### Passo a Passo
@@ -149,15 +151,22 @@ Para manter a máxima transparência com a evolução do projeto, o status das f
 
 ## 9. Instruções de Testes Automatizados
 
-Quando a suíte de testes estiver configurada nas próximas etapas:
+A camada de persistência SQLite possui 15 cenários de testes automatizados executando sobre um banco de dados SQLite real em memória:
 
 ```bash
 cd brmodelo-mobile
 npm test
 ```
 
+Ou execute diretamente via Node.js:
+```bash
+node --test tests/persistence.test.js
+```
+
 Para verificar vulnerabilidades de segurança nas dependências (DevSecOps):
 ```bash
+npm audit
+```
 npm audit
 ```
 
