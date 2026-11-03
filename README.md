@@ -19,16 +19,13 @@ Isso gera barreiras para estudantes em deslocamento, salas de aula sem acesso im
 ---
 
 ## 3. Objetivo do MVP
-O MVP (Produto Mínimo Viável) tem por finalidade disponibilizar uma experiência mobile enxuta, confiável e **100% offline**, focada na **modelagem relacional lógica** de banco de dados:
-- Criar e listar projetos de modelagem isolados.
-- Abrir e continuar trabalhando em modelos existentes.
-- Criar entidades com nomes únicos no contexto do projeto.
-- Definir atributos com tipos de dados relacionais (`INTEGER`, `VARCHAR`, `TEXT`, `REAL`, `DECIMAL`, `BOOLEAN`, `DATE`, `DATETIME`), indicação de chave primária (`PK`) e nulidade (`NOT NULL`).
-- Estabelecer relacionamentos entre entidades com seleção de cardinalidade (`1:1`, `1:N`, `N:N`), prevenindo autorrelacionamentos e associações entre projetos diferentes.
-- Persistir dados localmente no dispositivo via **SQLite**, garantindo integridade referencial com chaves estrangeiras ativas e remoção em cascata (`CASCADE`).
-- Excluir projetos com diálogo de confirmação explícita.
-
-> **Nota de Escopo:** O MVP não contempla editor vetorial com posicionamento 2D livre (canvas de desenho), geração automática de SQL/DDL ou backend em nuvem. A interface prioriza formulários e cartões estruturados adaptados para o toque no celular.
+O MVP (Produto Mínimo Viável) disponibiliza uma experiência mobile enxuta, confiável e **100% offline**, permitindo:
+- **Gestão de Projetos:** Criar, listar, renomear e excluir projetos com confirmação explícita.
+- **Editor de Modelos:** Acessar projetos com visualização de entidades e relacionamentos.
+- **Gestão de Entidades:** Criar, listar, renomear e excluir entidades (com deleção em cascata).
+- **Gestão de Atributos:** Adicionar, editar e remover atributos com tipos relacionais (`INTEGER`, `VARCHAR`, `TEXT`, `REAL`, `DECIMAL`, `BOOLEAN`, `DATE`, `DATETIME`), indicador visual de chave primária (`[PK]`) e obrigatoriedade (`[NOT NULL]`).
+- **Gestão de Relacionamentos:** Estabelecer associações estruturadas entre entidades do mesmo projeto com cardinalidades (`1:1`, `1:N`, `N:N`), validação de autorrelacionamento e integridade referencial.
+- **Persistência Confiável:** Armazenamento local no SQLite (`expo-sqlite`) com integridade referencial ativa (`PRAGMA foreign_keys = ON`), migrações idempotentes e preservação integral dos dados após fechar e reabrir o aplicativo.
 
 ---
 
@@ -36,24 +33,23 @@ O MVP (Produto Mínimo Viável) tem por finalidade disponibilizar uma experiênc
 A documentação completa de engenharia de software do BRMM está organizada no diretório [`docs/`](./docs/):
 
 1. 📄 [**01. Project Charter**](./docs/01-project-charter.md) — Visão geral, contexto, objetivos, público-alvo, escopo do MVP, restrições e premissas.
-2. 📄 [**02. User Stories**](./docs/02-user-stories.md) — Histórias de usuário com formato ágil, identificadores únicos, personas e benefícios de negócio.
-3. 📄 [**03. Requirements Specification**](./docs/03-requirements.md) — Requisitos funcionais (RF) e não funcionais (RNF) com priorização MoSCoW e matriz de rastreabilidade.
-4. 📄 [**04. Use Cases**](./docs/04-use-cases.md) — Caso de uso principal detalhado (UC-01), fluxos principal e alternativos, e tratamento de exceções.
-5. 📄 [**05. Software Architecture**](./docs/05-architecture.md) — Diagramas conceituais (Mermaid), arquitetura em camadas, schema relacional do SQLite, estratégia de CI/CD e DevSecOps.
-6. 📄 [**06. Acceptance Criteria & Definition of Done**](./docs/06-acceptance-criteria.md) — Critérios de aceite objetivos (formato BDD/Gherkin) e checklist de Definition of Done (DoD).
+2. 📄 [**02. User Stories**](./docs/02-user-stories.md) — Histórias de usuário com formato ágil (`US-01` a `US-05`), personas e benefícios de negócio.
+3. 📄 [**03. Requirements Specification**](./docs/03-requirements.md) — Requisitos funcionais (`RF-01` a `RF-08`) e não funcionais (`RNF-01` a `RNF-06`) com matriz de rastreabilidade.
+4. 📄 [**04. Use Cases**](./docs/04-use-cases.md) — Caso de uso principal detalhado (`UC-01`), fluxos principal, alternativos e exceções.
+5. 📄 [**05. Software Architecture**](./docs/05-architecture.md) — Diagramas conceituais (Mermaid), arquitetura em camadas, schema relacional do SQLite e DevSecOps.
+6. 📄 [**06. Acceptance Criteria & Definition of Done**](./docs/06-acceptance-criteria.md) — Critérios de aceite objetivos (`CA-01` a `CA-07`) e checklist de Definition of Done (DoD).
 
 ---
 
 ## 5. Tecnologias Utilizadas
 
-- **Framework Mobile:** [React Native](https://reactnative.dev/) (0.88.1) com [Expo](https://expo.dev/) (SDK 58)
-- **Linguagem:** JavaScript (ES6+) — sem TypeScript no MVP
-- **Banco de Dados Local:** SQLite via biblioteca oficial [`expo-sqlite`](https://docs.expo.dev/versions/latest/sdk/sqlite/) (~58.0.14)
-- **Estilização:** StyleSheet nativo do React Native
+- **Framework Mobile:** [React Native](https://reactnative.dev/) com [Expo](https://expo.dev/) (SDK 58)
+- **Linguagem:** JavaScript (ES6+)
+- **Banco de Dados Local:** SQLite via [`expo-sqlite`](https://docs.expo.dev/versions/latest/sdk/sqlite/) com migrações versionadas
+- **Navegação:** Navegação por pilha de telas nativa com suporte ao botão físico de retorno do Android (`BackHandler`)
+- **Estilização:** StyleSheet nativo do React Native com tema escuro BRMM
 - **Controle de Versão:** [Git](https://git-scm.com/) e [GitHub](https://github.com/)
-- **Qualidade de Código:** [ESLint](https://eslint.org/)
-- **Testes Automatizados:** [Jest](https://jestjs.io/)
-- **CI/CD:** [GitHub Actions](https://github.com/features/actions) (planejado)
+- **Testes Automatizados:** Test runner nativo do Node.js (`node:test`, `node:assert`) sem dependências externas
 
 ---
 
@@ -72,110 +68,133 @@ BRMM/
 │   └── 06-acceptance-criteria.md
 └── brmodelo-mobile/                    # Projeto da aplicação mobile Expo
     ├── package.json                    # Dependências e scripts npm
-    ├── app.json                        # Configuração do Expo
-    ├── App.js                          # Componente raiz da aplicação
-    ├── assets/                         # Imagens e ícones do aplicativo
-    └── src/                            # Código-fonte da aplicação
-        ├── components/                 # Componentes visuais reutilizáveis
-        ├── screens/                    # Telas da aplicação
-        ├── navigation/                 # Navegação entre telas
-        ├── database/                   # Inicialização SQLite e migrations DDL
-        ├── models/                     # Definições de modelos e esquemas
-        ├── services/                   # Regras de negócio e integração de dados
-        ├── hooks/                      # Hooks customizados React
-        ├── utils/                      # Funções utilitárias e validações
-        └── constants/                  # Constantes (tipos de dados, temas)
+    ├── app.json                        # Configuração do Expo (SDK 58)
+    ├── App.js                          # Ponto de entrada e pilha de navegação
+    ├── src/
+    │   ├── components/                 # Componentes reutilizáveis (Headers, Cards, Modais, Badges)
+    │   │   ├── AppHeader.js
+    │   │   ├── ConfirmModal.js
+    │   │   ├── InputModal.js
+    │   │   ├── AttributeModal.js
+    │   │   ├── RelationshipModal.js
+    │   │   ├── EmptyState.js
+    │   │   ├── ProjectCard.js
+    │   │   ├── EntityCard.js
+    │   │   ├── AttributeItem.js
+    │   │   └── RelationshipItem.js
+    │   ├── screens/                    # Telas funcionais do MVP
+    │   │   ├── HomeScreen.js           # Gestão de projetos
+    │   │   ├── ProjectScreen.js        # Editor do modelo (Entidades e Relacionamentos)
+    │   │   └── EntityScreen.js         # Gestor de atributos de entidades
+    │   ├── services/                   # Regras de negócio desacopladas
+    │   │   ├── projectService.js
+    │   │   ├── entityService.js
+    │   │   ├── attributeService.js
+    │   │   └── relationshipService.js
+    │   ├── database/                   # Camada de persistência SQLite
+    │   │   ├── index.js                # Conexão e transações
+    │   │   ├── schema.js               # DDL, constraints e índices
+    │   │   ├── migrations/             # Migrações versionadas (001_initial_schema)
+    │   │   └── repositories/           # Repositórios CRUD parametrizados
+    │   ├── models/                     # Entidades de domínio (Project, Entity, Attribute, Relationship)
+    │   ├── constants/                  # Tipos de dados, cardinalidades e tema visual
+    │   └── utils/                      # Validações, identificadores e formatadores
+    └── tests/                          # Suítes de testes automatizados
+        ├── persistence.test.js         # 15 testes de persistência SQLite
+        ├── services.test.js            # 13 testes de serviços de negócio
+        └── acceptance_criteria.test.js # Teste do fluxo completo de aceitação de 15 passos
 ```
 
 ---
 
 ## 7. Estado Atual do Desenvolvimento
 
-Para manter a máxima transparência com a evolução do projeto, o status das funcionalidades e artefatos é classificado em:
-
 | Funcionalidade / Artefato | Status | Observação |
 | :--- | :---: | :--- |
-| **Documentação de Engenharia (`docs/` 01 a 06)** | ✅ **Implementado e Testado** | Todos os 6 documentos concluídos, revisados e consistentes. |
-| **Estrutura Base do Repositório e `.gitignore`** | ✅ **Implementado e Testado** | Organização de pastas e regras de versionamento definidas. |
-| **Camada de Persistência SQLite (`src/database`)** | ✅ **Implementado e Testado** | Conexão (`index.js`), DDL completo (`schema.js`), migrations e integridade referencial com chaves compostas e `CASCADE`. |
-| **Repositórios de Persistência (`src/database/repositories`)** | ✅ **Implementado e Testado** | CRUD parametrizado completo para projetos, entidades, atributos e relacionamentos com modelos tipados em `src/models/`. |
-| **Testes Automatizados de Persistência (`tests/`)** | ✅ **Implementado e Testado** | 15 cenários automatizados cobrindo todas as operações, constraints e integridade via `node --test` contra SQLite real. |
-| **Interface Inicial de Demonstração (`App.js`)** | ✅ **Implementado e Testado** | Inicialização do banco, verificação de migrações e persistência interativa via Expo. |
-| **Telas Finais de Modelagem (`HomeScreen`, `ProjectScreen`, etc.)** | ⏳ **Planejado** | Fluxos completos de telas dedicadas de edição e diagramação. |
-| **Configuração de ESLint e Jest para UI** | ⏳ **Planejado** | Análise estática e testes unitários de componentes visuais. |
-| **Pipeline de CI/CD (GitHub Actions)** | ⏳ **Planejado** | Automação de lint e testes em `.github/workflows/ci.yml`. |
-
-> **Legenda:**  
-> - ✅ **Implementado e testado:** Funcionalidade concluída, verificada e documentada.  
-> - 🟡 **Em desenvolvimento:** Trabalho em andamento na etapa corrente.  
-> - ⏳ **Planejado:** Escopo definido aguardando o início da implementação.
+| **Documentação de Engenharia (`docs/` 01 a 06)** | ✅ **Concluído** | 6 documentos completos, revisados e alinhados com o código. |
+| **Estrutura Base do Repositório e `.gitignore`** | ✅ **Concluído** | Organização modular e boas práticas de versionamento. |
+| **Camada de Persistência SQLite (`src/database`)** | ✅ **Concluído** | Conexão com `expo-sqlite`, migrações versionadas, `PRAGMA foreign_keys = ON` e exclusão em cascata. |
+| **Repositórios de Dados (`src/database/repositories`)** | ✅ **Concluído** | CRUD 100% parametrizado contra SQL Injection para todas as entidades. |
+| **Camada de Serviços de Negócio (`src/services`)** | ✅ **Concluído** | Validações prévias, unicidade de nomes, proibição de autorrelacionamento e cálculo de estatísticas. |
+| **Componentes e Modais Reutilizáveis (`src/components`)** | ✅ **Concluído** | Modais de confirmação, entrada de texto, formulário de atributos e seletores de relacionamentos. |
+| **Tela de Gerenciamento de Projetos (`HomeScreen`)** | ✅ **Concluído** | Criação, listagem com estatísticas reais, exclusão com confirmação e estados vazios. |
+| **Tela do Editor de Modelo (`ProjectScreen`)** | ✅ **Concluído** | Abas de Entidades e Relacionamentos, edição de nome, exclusão com alerta em cascata. |
+| **Tela de Atributos da Entidade (`EntityScreen`)** | ✅ **Concluído** | Adição e edição de atributos com tipos, switches de `[PK]` e `[NOT NULL]`, badges e ordenação. |
+| **Seção Estruturada de Relacionamentos** | ✅ **Concluído** | Visualização em diagrama relacional com cardinalidades (`1:1`, `1:N`, `N:N`) e validações de integridade. |
+| **Navegação Mobile Nativa** | ✅ **Concluído** | Pilha de navegação em JavaScript puro com suporte ao botão Voltar físico do Android. |
+| **Testes Automatizados (29 cenários)** | ✅ **Concluído** | 29 testes aprovados (persistência, serviços e fluxo completo de aceitação de 15 passos). |
+| **Compatibilidade Expo SDK 58 e Android** | ✅ **Concluído** | 20/20 verificações aprovadas no `npx expo-doctor` e bundle Android validado pelo Metro. |
 
 ---
 
 ## 8. Como Executar o Projeto Localmente
 
 ### Pré-requisitos
-- [Node.js](https://nodejs.org/) versão 20+ ou 24+ instalada.
+- [Node.js](https://nodejs.org/) versão 20+ ou 22+ instalada.
 - [npm](https://www.npmjs.com/).
-- Dispositivo físico móvel com o aplicativo **Expo Go** instalado (disponível no Google Play ou Apple App Store) **OU** emulador configurado (Android Studio / Xcode).
+- Dispositivo físico móvel com o aplicativo **Expo Go** instalado (Android ou iOS) **OU** emulador Android configurado.
 
 ### Passo a Passo
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/SEU-USUARIO/BRModelo-Mobile.git
-   cd BRModelo-Mobile
-   ```
-
-2. Acesse a pasta do projeto mobile:
+1. Acesse a pasta do projeto mobile:
    ```bash
    cd brmodelo-mobile
    ```
 
-3. Instale as dependências:
+2. Instale as dependências:
    ```bash
    npm install
    ```
 
-4. Inicie o servidor de desenvolvimento do Expo:
+3. Execute a suíte de testes automatizados:
+   ```bash
+   npm test
+   ```
+
+4. Verifique a integridade do ambiente com o Expo Doctor:
+   ```bash
+   npx expo-doctor
+   ```
+
+5. Inicie o servidor Expo:
    ```bash
    npx expo start
    ```
 
-5. Abra o aplicativo:
-   - **No celular físico:** Abra a câmera (iOS) ou o aplicativo **Expo Go** (Android) e escaneie o QR Code exibido no terminal.
+6. Abra o aplicativo:
+   - **No celular físico:** Abra o **Expo Go** e escaneie o QR Code exibido no terminal.
    - **No emulador Android:** Pressione a tecla `a` no terminal.
-   - **No simulador iOS (macOS):** Pressione a tecla `i` no terminal.
-   - **No navegador (para testes rápidos de UI):** Pressione a tecla `w` no terminal.
+   - **Na web (para inspeção visual):** Pressione a tecla `w` no terminal.
 
 ---
 
-## 9. Instruções de Testes Automatizados
+## 9. Suíte de Testes Automatizados
 
-A camada de persistência SQLite possui 15 cenários de testes automatizados executando sobre um banco de dados SQLite real em memória:
+O BRMM conta com **29 testes automatizados** divididos em três suítes de alta performance executadas via `node --test`:
 
 ```bash
 cd brmodelo-mobile
 npm test
 ```
 
-Ou execute diretamente via Node.js:
-```bash
-node --test tests/persistence.test.js
-```
-
-Para verificar vulnerabilidades de segurança nas dependências (DevSecOps):
-```bash
-npm audit
-```
-npm audit
-```
+### Detalhamento das Suítes:
+1. `tests/persistence.test.js` (15 testes):
+   - Validação de constraints SQLite (`UNIQUE`, `CHECK`, `FOREIGN KEY ... ON DELETE CASCADE`).
+   - Integridade referencial composta para impedir relacionamentos entre projetos distintos.
+   - Idempotência de inicialização e versionamento de migrações (`__migrations`).
+2. `tests/services.test.js` (13 testes):
+   - Validações de nomes vazios ou com espaços.
+   - Unicidade de nomes de entidades por projeto.
+   - Preservação de atributos ao editar propriedades parciais.
+   - Proibição de autorrelacionamento no MVP e exigência de ao menos 2 entidades.
+3. `tests/acceptance_criteria.test.js` (1 teste integrado de 15 passos):
+   - Execução do fluxo completo de aceitação do MVP de ponta a ponta: criação de projeto -> entidades -> atributos com PK -> relacionamentos -> edição -> encerramento do app -> reabertura com persistência conferida -> exclusão em cascata.
 
 ---
 
-## 10. Próximas Etapas
+## 10. Funcionalidades Fora do Escopo do MVP (Futuras Extensões)
 
-1. Finalizar a configuração dos arquivos essenciais do Expo em `brmodelo-mobile/`.
-2. Implementar a camada de inicialização do banco SQLite (`src/database/index.js` e migrations) garantindo suporte a chaves estrangeiras e integridade referencial.
-3. Desenvolver os utilitários de validação e regras de negócio com cobertura de testes unitários Jest.
-4. Implementar as telas e componentes visuais respeitando os requisitos de usabilidade mobile.
-5. Configurar o workflow de CI no GitHub Actions (`.github/workflows/ci.yml`).
+- Geração e exportação de scripts DDL SQL (`CREATE TABLE`, etc.).
+- Editor com canvas gráfico livre bidimensional e arrastar-e-soltar.
+- Sincronização em nuvem e autenticação de usuários.
+- Compartilhamento e colaboração multiusuário em tempo real.
+- Engenharia reversa a partir de bases de dados externas.
