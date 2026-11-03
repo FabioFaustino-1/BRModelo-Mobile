@@ -14,7 +14,12 @@ import { RelationshipLink } from './RelationshipLink.js';
  * CanvasWorkspace — Área de trabalho principal do editor visual Canvas 2D.
  * Aplica transform (translate + scale) a uma camada interna de 6000x6000.
  *
- * Usa refs para evitar stale closures nos PanResponders.
+ * Suporta:
+ * - Pan com 1 dedo pelo fundo do canvas
+ * - Pinch-to-zoom com 2 dedos para aproximar/afastar fluidamente
+ * - Toque duplo no fundo para criar entidade na coordenada tocada
+ * - Grade de pontos estilo Figma/Obsidian para orientação espacial
+ * - Camada de nós de entidades arrastáveis e linhas de relacionamentos
  */
 export function CanvasWorkspace({
   entities = [],
@@ -33,6 +38,7 @@ export function CanvasWorkspace({
   onEntityPositionChange,
   onViewportChange,
   onConnectingEntityPress,
+  onDoubleTapCanvas,
 }) {
   const [windowDimensions, setWindowDimensions] = useState(Dimensions.get('window'));
 
@@ -59,7 +65,15 @@ export function CanvasWorkspace({
   const viewportChangeRef = useRef(onViewportChange);
   viewportChangeRef.current = onViewportChange;
 
-  // PanResponder exclusivo para navegar pelo fundo do Canvas
+  const doubleTapRef = useRef(onDoubleTapCanvas);
+  doubleTapRef.current = onDoubleTapCanvas;
+
+  // Refs para controle de gestos multi-toque e duplo toque
+  const initialDistanceRef = useRef(null);
+  const initialZoomRef = useRef(zoom);
+  const lastTapRef = useRef(null);
+
+  // PanResponder com suporte a pan de 1 dedo, pinch-to-zoom de 2 dedos e duplo toque
   const backgroundPanResponder = useMemo(
     () =>
       PanResponder.create({
@@ -67,20 +81,73 @@ export function CanvasWorkspace({
         onMoveShouldSetPanResponder: (_, gestureState) => {
           return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
         },
-        onPanResponderGrant: () => {
+        onPanResponderGrant: (evt) => {
+          const now = Date.now();
+          const touch = evt.nativeEvent;
+
+          // Detecção de toque duplo no fundo do canvas
+          if (lastTapRef.current && now - lastTapRef.current.time < 350) {
+            const dist = Math.hypot(
+              touch.pageX - lastTapRef.current.x,
+              touch.pageY - lastTapRef.current.y
+            );
+            if (dist < 30 && doubleTapRef.current) {
+              doubleTapRef.current({
+                screenX: touch.pageX,
+                screenY: touch.pageY,
+              });
+              lastTapRef.current = null;
+              return;
+            }
+          }
+          lastTapRef.current = { time: now, x: touch.pageX, y: touch.pageY };
+
           if (!connectingRef.current) {
             deselectRef.current();
           }
         },
-        onPanResponderMove: (_, gestureState) => {
-          const nextX = panState.current.x + gestureState.dx;
-          const nextY = panState.current.y + gestureState.dy;
-          viewportChangeRef.current(zoomRef.current, nextX, nextY, false);
+        onPanResponderMove: (evt, gestureState) => {
+          const touches = evt.nativeEvent.touches;
+
+          // Gesto de Pinch-to-Zoom com 2 dedos
+          if (touches && touches.length >= 2) {
+            const dx = touches[0].pageX - touches[1].pageX;
+            const dy = touches[0].pageY - touches[1].pageY;
+            const distance = Math.hypot(dx, dy);
+
+            if (!initialDistanceRef.current) {
+              initialDistanceRef.current = distance;
+              initialZoomRef.current = zoomRef.current;
+            } else if (initialDistanceRef.current > 0) {
+              const scaleFactor = distance / initialDistanceRef.current;
+              const nextZoom = Math.min(
+                2.5,
+                Math.max(0.4, Number((initialZoomRef.current * scaleFactor).toFixed(2)))
+              );
+              viewportChangeRef.current(nextZoom, panState.current.x, panState.current.y, false);
+            }
+          } else {
+            // Deslocamento Pan convencional com 1 dedo
+            initialDistanceRef.current = null;
+            const nextX = panState.current.x + gestureState.dx;
+            const nextY = panState.current.y + gestureState.dy;
+            viewportChangeRef.current(zoomRef.current, nextX, nextY, false);
+          }
         },
         onPanResponderRelease: (_, gestureState) => {
-          const finalX = panState.current.x + gestureState.dx;
-          const finalY = panState.current.y + gestureState.dy;
-          viewportChangeRef.current(zoomRef.current, finalX, finalY, true);
+          const wasPinching = Boolean(initialDistanceRef.current);
+          initialDistanceRef.current = null;
+
+          if (wasPinching) {
+            viewportChangeRef.current(zoomRef.current, panState.current.x, panState.current.y, true);
+          } else {
+            const finalX = panState.current.x + gestureState.dx;
+            const finalY = panState.current.y + gestureState.dy;
+            viewportChangeRef.current(zoomRef.current, finalX, finalY, true);
+          }
+        },
+        onPanResponderTerminate: () => {
+          initialDistanceRef.current = null;
         },
       }),
     []

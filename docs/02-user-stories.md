@@ -11,6 +11,7 @@ Este documento formaliza as histórias de usuário para o MVP do **BRMM (BRModel
 - [US-03: Estabelecimento de Relacionamentos entre Entidades](#us-03-estabelecimento-de-relacionamentos-entre-entidades)
 - [US-04: Persistência Local e Recuperação de Projetos](#us-04-persistência-local-e-recuperação-de-projetos)
 - [US-05: Exclusão Segura de Projetos](#us-05-exclusão-segura-de-projetos)
+- [US-06: Editor Visual Interativo (Canvas 2D)](#us-06-editor-visual-interativo-canvas-2d)
 
 ---
 
@@ -41,10 +42,10 @@ Este documento formaliza as histórias de usuário para o MVP do **BRMM (BRModel
   > **para que** eu consiga representar formalmente os dados e tabelas do meu minimundo conceitual/lógico.
 - **Benefício:** Garante a fidelidade semântica da modelagem relacional, permitindo que o estudante aprenda e aplique conceitos fundamentais (como PK e NOT NULL) diretamente na interface mobile.
 - **Critérios de Aceite Básicos:**
-  1. Dentro de um projeto aberto, o usuário pode adicionar uma nova entidade com nome obrigatório.
+  1. Dentro de um projeto aberto, o usuário pode adicionar uma nova entidade com nome obrigatório diretamente no canvas ou na lista.
   2. Ao selecionar uma entidade, o usuário pode adicionar múltiplos atributos.
   3. Cada atributo permite definir nome, tipo de dado (ex.: `INTEGER`, `VARCHAR`, etc.), se é chave primária (`PK`) e se é obrigatório (`NOT NULL`).
-  4. A lista de atributos da entidade exibe claramente as marcas visuais de `[PK]` e obrigatoriedade.
+  4. O nó visual da entidade no canvas exibe claramente as marcas visuais de `[PK]` e obrigatoriedade `[NN]`.
 
 ---
 
@@ -58,10 +59,10 @@ Este documento formaliza as histórias de usuário para o MVP do **BRMM (BRModel
   > **para que** eu possa representar as associações e regras de negócio entre as tabelas do meu modelo relacional.
 - **Benefício:** Viabiliza o estudo e a validação de regras de integridade referencial e cardinalidades (1:1, 1:N, N:N), essenciais na arquitetura relacional.
 - **Critérios de Aceite Básicos:**
-  1. A tela de relacionamentos permite selecionar uma entidade de origem e uma entidade de destino a partir das entidades cadastradas no mesmo projeto.
-  2. O usuário não pode criar relacionamento referenciando entidades inexistentes.
+  1. O usuário pode conectar duas entidades através da ferramenta "Relacionar" tocando na origem e depois no destino no canvas.
+  2. O usuário não pode criar relacionamento referenciando entidades inexistentes ou autorrelacionamentos no MVP.
   3. O usuário seleciona o tipo de cardinalidade (`1:1`, `1:N`, `N:N`).
-  4. O relacionamento cadastrado é listado exibindo origem, destino e cardinalidade, com opção de remoção.
+  4. O relacionamento é desenhado como uma linha conectora com chip central de cardinalidade clicável.
 
 ---
 
@@ -71,12 +72,12 @@ Este documento formaliza as histórias de usuário para o MVP do **BRMM (BRModel
 - **Persona:** Usuário de Smartphone
 - **Declaração:**
   > **Como** usuário mobile,  
-  > **quero** que todas as entidades, atributos e relacionamentos criados sejam gravados automaticamente no armazenamento local do dispositivo,  
-  > **para que** eu possa fechar o aplicativo a qualquer momento e continuar de onde parei sem perder o progresso e sem depender de conexão com a internet.
+  > **quero** que todas as entidades, atributos, relacionamentos, posições visuais e coordenadas de navegação sejam gravadas automaticamente no armazenamento local do dispositivo,  
+  > **para que** eu possa fechar o aplicativo a qualquer momento e continuar exatamente de onde parei sem perder o progresso e sem depender de conexão com a internet.
 - **Benefício:** Confiabilidade e robustez, eliminando a frustração de perda de dados acidental em dispositivos móveis que podem descarregar ou fechar apps em segundo plano.
 - **Critérios de Aceite Básicos:**
-  1. Qualquer alteração (inclusão, alteração ou exclusão) é persistida imediatamente no banco de dados local SQLite.
-  2. Ao encerrar o processo do aplicativo e reabri-lo, todos os projetos e seus respectivos elementos permanecem inalterados.
+  1. Qualquer alteração (inclusão, alteração, movimentação ou exclusão) é persistida imediatamente no banco de dados local SQLite.
+  2. Ao encerrar o processo do aplicativo e reabri-lo, todos os projetos, entidades nas suas posições e viewport permanecem inalterados.
   3. O aplicativo não requer acesso à rede ou autenticação para ler e gravar dados.
 
 ---
@@ -94,3 +95,22 @@ Este documento formaliza as histórias de usuário para o MVP do **BRMM (BRModel
   1. A ação de exclusão de um projeto aciona um diálogo de confirmação com opções claras ("Cancelar" e "Excluir").
   2. A exclusão somente é executada após a confirmação explícita do usuário.
   3. Ao ser excluído, todas as entidades, atributos e relacionamentos associados àquele projeto são removidos do banco local de forma atômica (deleção em cascata).
+
+---
+
+### US-06: Editor Visual Interativo (Canvas 2D)
+- **Identificador:** `US-06`
+- **Título:** Construir e organizar modelos visualmente em uma área de trabalho livre
+- **Persona:** Estudante de Modelagem Visual
+- **Declaração:**
+  > **Como** modelador de dados,  
+  > **quero** construir e organizar visualmente meu modelo relacional dentro de uma área de trabalho interativa (canvas 2D), arrastando entidades livremente e visualizando suas conexões por linhas com cardinalidades,  
+  > **para que** eu tenha uma percepção espacial clara da arquitetura do banco de dados, similar a ferramentas desktop como BRModelo e ferramentas visuais modernas como Figma e Obsidian.
+- **Benefício:** Melhora a cognição visual, facilita o entendimento imediato da topologia de tabelas e proporciona uma experiência envolvente de modelagem relacional em telas de smartphones e tablets.
+- **Critérios de Aceite Básicos:**
+  1. Ao abrir um projeto, a experiência padrão é a área de trabalho do Canvas 2D.
+  2. O usuário pode arrastar entidades com o toque com atualização a 60 fps e persistência ao soltar.
+  3. A área de trabalho permite deslocamento livre (pan) com 1 dedo e zoom via botões ou gesto de pinça (pinch-to-zoom).
+  4. Botão "Enquadrar" centraliza automaticamente todas as entidades na tela.
+  5. Uma gaveta inferior contextual exibe ações rápidas (renomear, novo atributo, gerenciar campos, excluir) para o elemento selecionado.
+  6. É possível alternar para visualização tabular em lista a qualquer momento.

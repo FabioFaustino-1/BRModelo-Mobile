@@ -64,6 +64,7 @@ export function ProjectScreen({
 
   // Modais de Entidade
   const [isCreateEntityOpen, setIsCreateEntityOpen] = useState(false);
+  const [pendingSpawnCoords, setPendingSpawnCoords] = useState(null);
   const [entityToRename, setEntityToRename] = useState(null);
   const [entityToDelete, setEntityToDelete] = useState(null);
 
@@ -188,6 +189,18 @@ export function ProjectScreen({
     }
   }
 
+  // --- Duplo Toque no Canvas para Criar Entidade na Coordenada ---
+  function handleCanvasDoubleTap({ screenX, screenY }) {
+    if (isConnectingMode) return;
+    const spawnX = Math.round((screenX - panX) / zoom - ENTITY_NODE_WIDTH / 2);
+    const spawnY = Math.round((screenY - 120 - panY) / zoom - 40);
+    setPendingSpawnCoords({
+      x: Math.max(20, spawnX),
+      y: Math.max(20, spawnY),
+    });
+    setIsCreateEntityOpen(true);
+  }
+
   // --- Seleção de Elementos ---
   function handleSelectEntity(entity) {
     setSelectedEntity(entity);
@@ -259,17 +272,23 @@ export function ProjectScreen({
   // --- Ações de Entidade ---
   async function handleCreateEntity(name) {
     try {
-      // Calcula posição central do viewport atual para adicionar o nó visível
-      const screenWidth = Dimensions.get('window').width;
-      const screenHeight = Dimensions.get('window').height - 180;
-      const spawnX = Math.round((screenWidth / 2 - panX) / zoom - ENTITY_NODE_WIDTH / 2);
-      const spawnY = Math.round((screenHeight / 2 - panY) / zoom - 60);
+      let spawnX, spawnY;
+      if (pendingSpawnCoords) {
+        spawnX = pendingSpawnCoords.x;
+        spawnY = pendingSpawnCoords.y;
+      } else {
+        const screenWidth = Dimensions.get('window').width;
+        const screenHeight = Dimensions.get('window').height - 180;
+        spawnX = Math.max(20, Math.round((screenWidth / 2 - panX) / zoom - ENTITY_NODE_WIDTH / 2));
+        spawnY = Math.max(20, Math.round((screenHeight / 2 - panY) / zoom - 60));
+      }
+      setPendingSpawnCoords(null);
 
       const created = await entityService.createEntity({
         projectId,
         name,
-        positionX: Math.max(20, spawnX),
-        positionY: Math.max(20, spawnY),
+        positionX: spawnX,
+        positionY: spawnY,
       });
 
       setIsCreateEntityOpen(false);
@@ -401,6 +420,7 @@ export function ProjectScreen({
             onEntityPositionChange={handleEntityPositionChange}
             onViewportChange={handleViewportChange}
             onConnectingEntityPress={handleConnectingEntityPress}
+            onDoubleTapCanvas={handleCanvasDoubleTap}
           />
 
           {/* Gaveta de Ações Contextuais do Elemento Selecionado */}
@@ -423,7 +443,10 @@ export function ProjectScreen({
             zoom={zoom}
             viewMode={viewMode}
             onSetMode={(m) => setCanvasMode(m)}
-            onAddEntity={() => setIsCreateEntityOpen(true)}
+            onAddEntity={() => {
+              setPendingSpawnCoords(null);
+              setIsCreateEntityOpen(true);
+            }}
             onStartConnect={handleStartConnectMode}
             onCancelConnect={handleCancelConnectMode}
             onZoomIn={handleZoomIn}
@@ -482,7 +505,10 @@ export function ProjectScreen({
                   <Text style={styles.sectionTitle}>Entidades do Modelo</Text>
                   <TouchableOpacity
                     style={styles.primaryActionBtn}
-                    onPress={() => setIsCreateEntityOpen(true)}
+                    onPress={() => {
+                      setPendingSpawnCoords(null);
+                      setIsCreateEntityOpen(true);
+                    }}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.primaryActionBtnText}>+ Nova Entidade</Text>
@@ -495,7 +521,10 @@ export function ProjectScreen({
                   title="Nenhuma entidade cadastrada"
                   message="Adicione sua primeira entidade para visualizá-la no Canvas e na lista."
                   actionLabel="+ Nova Entidade"
-                  onAction={() => setIsCreateEntityOpen(true)}
+                  onAction={() => {
+                    setPendingSpawnCoords(null);
+                    setIsCreateEntityOpen(true);
+                  }}
                 />
               }
               renderItem={({ item }) => (
@@ -575,12 +604,15 @@ export function ProjectScreen({
       {/* Modal Criar Entidade */}
       <InputModal
         visible={isCreateEntityOpen}
-        title="Nova Entidade no Canvas"
+        title={pendingSpawnCoords ? 'Nova Entidade na Posição' : 'Nova Entidade no Canvas'}
         placeholder="Ex: Cliente, Produto, Pedido"
         label="Nome da Entidade"
         confirmText="Criar no Canvas"
         onConfirm={handleCreateEntity}
-        onCancel={() => setIsCreateEntityOpen(false)}
+        onCancel={() => {
+          setIsCreateEntityOpen(false);
+          setPendingSpawnCoords(null);
+        }}
       />
 
       {/* Modal Renomear Entidade */}
