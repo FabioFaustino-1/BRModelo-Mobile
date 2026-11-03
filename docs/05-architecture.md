@@ -1,5 +1,4 @@
 # Documento de Arquitetura de Software — BRMM (BRModelo Mobile)
-
 ## 1. Visão Geral da Arquitetura
 
 O **BRMM (BRModelo Mobile)** adota uma arquitetura em camadas orientada a componentes, com abordagem **Local-First (100% Offline)**. Toda a computação, manipulação de regras de negócio e armazenamento residem exclusivamente no dispositivo móvel do usuário.
@@ -10,13 +9,15 @@ O MVP foca na **modelagem relacional lógica** de bancos de dados:
 - Criação de entidades (tabelas) com nomes únicos por projeto.
 - Definição de atributos com tipos relacionais (`INTEGER`, `VARCHAR`, `TEXT`, `REAL`, `DECIMAL`, `BOOLEAN`, `DATE`, `DATETIME`), indicador de chave primária (`PK`) e nulidade (`NOT NULL`).
 - Estabelecimento de relacionamentos estruturados entre entidades com cardinalidades (`1:1`, `1:N`, `N:N`).
-- **Fora do escopo:** Geração automática de scripts SQL/DDL externos, canvas livre vetorial com arraste bidimensional e sincronização em nuvem.
+- **Editor Visual Canvas 2D** com posicionamento livre de entidades no plano bidimensional, arraste interativo e viewport persistente (zoom e posição salvos por projeto).
+- **Fora do escopo:** Geração automática de scripts SQL/DDL externos e sincronização em nuvem.
 
 ```mermaid
 graph TD
     UI[Interface do Usuário / Camada de Apresentação]
     subgraph Apresentacao [Camada de Apresentação]
         SC[Screens / Telas]
+        CV[Canvas / Editor Visual 2D]
         CO[Components / Componentes Reutilizáveis]
         NV[Navigation / Navegação]
     end
@@ -33,6 +34,7 @@ graph TD
     end
 
     UI --> SC
+    SC --> CV
     SC --> CO
     SC --> NV
     SC --> SV
@@ -52,7 +54,7 @@ graph TD
 | **Linguagem** | **JavaScript (ES6+)** | Elimina complexidade de configuração e etapas de compilação adicionais no MVP, garantindo prototipagem rápida e aderência direta às diretrizes do projeto. |
 | **Persistência Local** | **SQLite (`expo-sqlite`)** | Banco de dados relacional embarcado no próprio dispositivo. Fornece ACID completo, integridade referencial com chaves estrangeiras, consultas eficientes e persistência segura em arquivo local sem custo de infraestrutura. |
 | **Backend Remoto** | **Nenhum (100% Local)** | O MVP tem como objetivo central a modelagem individual no dispositivo móvel. A ausência de backend remoto simplifica a arquitetura, reduz custos e garante funcionamento estritamente offline com máxima privacidade. |
-| **Testes Automatizados** | **Jest + Jest Expo** | Padrão da comunidade React Native para testes unitários e de integração de serviços, validadores e lógica de negócios. |
+| **Testes Automatizados** | **`node:test` (runner nativo do Node.js)** | Runner de testes nativo do Node.js, sem dependências externas. Permite execução de testes unitários e de integração de serviços, validadores e lógica de negócios de forma leve e direta. |
 | **Controle de Versão** | **Git + GitHub** | Controle de versões distribuído, rastreabilidade de commits semânticos e base para automação de pipelines. |
 
 ---
@@ -66,9 +68,17 @@ brmodelo-mobile/
 ├── assets/                     # Ícones, fontes e recursos visuais estáticos
 ├── src/
 │   ├── components/             # Componentes visuais reutilizáveis (botões, modais, cartões)
+│   │   └── canvas/             # Componentes do Editor Visual Canvas 2D
+│   │       ├── EntityNode.js           # Nó visual de entidade no canvas (arrastável)
+│   │       ├── RelationshipLink.js     # Linha de conexão entre entidades relacionadas
+│   │       ├── CanvasToolbar.js        # Barra de ferramentas do canvas (zoom, centralizar)
+│   │       ├── CanvasWorkspace.js      # Área de trabalho principal com pan/zoom
+│   │       └── SelectedElementDrawer.js # Drawer inferior de detalhes do elemento selecionado
 │   ├── screens/                # Telas da aplicação (HomeScreen, ProjectScreen, EntityScreen, etc.)
 │   ├── navigation/             # Configurações de navegação de telas
 │   ├── database/               # Conexão SQLite, migrations DDL e execução de queries
+│   │   └── migrations/
+│   │       └── 002_canvas_visual_editor.js  # Migração: colunas de posição e viewport
 │   ├── models/                 # Definições de entidades, contratos de dados e esquemas
 │   ├── services/               # Regras de negócio (ProjectService, EntityService, RelationshipService)
 │   ├── hooks/                  # React Hooks customizados para gerenciamento de estado e ciclo de vida
@@ -82,6 +92,7 @@ brmodelo-mobile/
 ### Responsabilidades das Camadas:
 - **`screens/`**: Telas de visualização que orquestram a interface e invocam os serviços.
 - **`components/`**: Elementos de UI desacoplados (ex.: `ProjectCard`, `AttributeItem`, `ConfirmModal`).
+- **`components/canvas/`**: Componentes especializados do Editor Visual Canvas 2D (nós de entidade, links de relacionamento, toolbar e workspace com pan/zoom).
 - **`services/`**: Concentra a lógica de validação de negócios (ex.: validação de nomes únicos, verificação de entidades antes de relacionar) e orquestra chamadas ao banco.
 - **`database/`**: Inicializa o arquivo SQLite local, executa scripts de criação de tabelas e expõe operações SQL parametrizadas.
 - **`utils/`**: Funções puras de formatação de data, validação de inputs e sanitização de texto.
@@ -105,6 +116,9 @@ erDiagram
         TEXT name
         TEXT created_at
         TEXT updated_at
+        REAL viewport_zoom
+        REAL viewport_x
+        REAL viewport_y
     }
 
     ENTITY {
@@ -113,6 +127,8 @@ erDiagram
         TEXT name
         TEXT created_at
         TEXT updated_at
+        REAL position_x
+        REAL position_y
     }
 
     ATTRIBUTE {
@@ -224,6 +240,19 @@ erDiagram
 - **Transacionalidade:** Cada migração é executada dentro de uma transação atômica (`withTransactionAsync`). Se ocorrer qualquer erro, o `ROLLBACK` é acionado e a versão não é registrada.
 - **Persistência de Versão:** Além do registro na tabela `__migrations`, o `PRAGMA user_version` nativo do SQLite é atualizado.
 
+### 4.4. Migração 002 — Editor Visual Canvas 2D
+A migração `002_canvas_visual_editor` estende o esquema do banco para suportar o posicionamento espacial de entidades e a persistência do viewport do canvas por projeto.
+
+- **Colunas adicionadas na tabela `entities`:**
+  - `position_x REAL DEFAULT 100` — coordenada X da entidade no canvas.
+  - `position_y REAL DEFAULT 100` — coordenada Y da entidade no canvas.
+- **Colunas adicionadas na tabela `projects`:**
+  - `viewport_zoom REAL DEFAULT 1.0` — nível de zoom do canvas.
+  - `viewport_x REAL DEFAULT 0` — posição X do viewport (deslocamento horizontal).
+  - `viewport_y REAL DEFAULT 0` — posição Y do viewport (deslocamento vertical).
+- **Idempotência:** A migração verifica as colunas existentes via `PRAGMA table_info` antes de executar cada `ALTER TABLE ADD COLUMN`, evitando erros em execuções repetidas.
+- **Valores padrão:** Os defaults (`100` para posições de entidade, `1.0` para zoom, `0` para offsets de viewport) garantem que entidades pré-existentes apareçam em posição válida e visível no canvas, sem necessidade de intervenção manual do usuário.
+
 ---
 
 ## 5. Estratégia de Versionamento Git e GitHub
@@ -241,12 +270,22 @@ erDiagram
 
 ## 6. Plano de Testes Automatizados
 
-1. **Testes de Persistência e Regras de Negócio (Implementados):**
+1. **Testes de Persistência e Regras de Negócio:**
    - Suíte automatizada com 15 cenários em `tests/persistence.test.js`.
-   - Executada com o runner nativo do Node.js (`node --test tests/**/*.test.js`), sem necessidade de download de dependências externas.
    - Valida contra banco SQLite real em memória (`useMemory: true`), cobrindo integridade referencial, constraints compostas, ordenações, concorrência, idempotência e deleção em cascata.
-2. **Testes de Componentes Visuais (Planejado):**
-   - Configuração do **Jest** e **React Native Testing Library** para validação das interações de toque nas telas do MVP quando forem desenvolvidas.
+2. **Testes de Relacionamentos:**
+   - Suíte automatizada em `tests/relationship.test.js`.
+   - Cobre criação, validação de cardinalidades, restrições de autorrelacionamento e cascata de exclusão.
+3. **Testes de Atributos:**
+   - Suíte automatizada em `tests/attribute.test.js`.
+   - Valida tipos de dados, constraints de unicidade, flags PK/NOT NULL e operações CRUD de atributos.
+4. **Testes do Canvas — Migração e Persistência:**
+   - Suíte automatizada em `tests/canvas.test.js`.
+   - Valida a migração 002, persistência de posições de entidade (`position_x`, `position_y`) e viewport de projeto (`viewport_zoom`, `viewport_x`, `viewport_y`).
+5. **Testes do Canvas — Componentes Visuais:**
+   - Suíte automatizada em `tests/canvas-components.test.js`.
+   - Valida renderização e interação dos componentes do Editor Visual Canvas 2D (EntityNode, RelationshipLink, CanvasToolbar, CanvasWorkspace).
+- **Total: 5 suítes, 33 testes.** Todas executadas com o runner nativo do Node.js (`node --test tests/**/*.test.js`), sem dependências externas.
 
 ---
 

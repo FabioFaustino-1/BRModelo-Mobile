@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,6 +10,12 @@ import { THEME } from '../../constants/theme.js';
 
 export const ENTITY_NODE_WIDTH = 210;
 
+/**
+ * EntityNode — Nó visual arrastável de entidade no Canvas 2D.
+ * Renderizado em posição absoluta (positionX, positionY) dentro da transformLayer.
+ *
+ * Usa refs para acessar valores atualizados dentro do PanResponder (evita stale closures).
+ */
 export function EntityNode({
   entity,
   isSelected = false,
@@ -21,34 +27,46 @@ export function EntityNode({
   onPositionChange,
   onPressConnecting,
 }) {
-  const panRef = useRef({ x: entity.positionX || 100, y: entity.positionY || 100 });
-  panRef.current = { x: entity.positionX || 100, y: entity.positionY || 100 };
+  // Refs para valores atualizados dentro do PanResponder (evita stale closures)
+  const connectingRef = useRef(isConnectingMode);
+  connectingRef.current = isConnectingMode;
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !isConnectingMode,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        if (isConnectingMode) return false;
-        // Só ativa se o movimento for relevante (> 3dp) para não roubar cliques simples
-        return Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3;
-      },
-      onPanResponderGrant: () => {
-        onSelect(entity);
-      },
-      onPanResponderMove: (_, gestureState) => {
-        // Divide o deslocamento pelo zoom para que o arraste acompanhe o dedo exatamente
-        const newX = Math.round(panRef.current.x + gestureState.dx / zoom);
-        const newY = Math.round(panRef.current.y + gestureState.dy / zoom);
-        onPositionChange(entity.id, newX, newY, false); // false = em movimento (não persistir no banco a cada pixel)
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const finalX = Math.round(panRef.current.x + gestureState.dx / zoom);
-        const finalY = Math.round(panRef.current.y + gestureState.dy / zoom);
-        onPositionChange(entity.id, finalX, finalY, true); // true = soltou (persistir no SQLite)
-      },
-      onPanResponderTerminate: () => {},
-    })
-  ).current;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
+  const entityRef = useRef(entity);
+  entityRef.current = entity;
+
+  const posRef = useRef({ x: entity.positionX || 100, y: entity.positionY || 100 });
+  posRef.current = { x: entity.positionX || 100, y: entity.positionY || 100 };
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !connectingRef.current,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          if (connectingRef.current) return false;
+          return Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3;
+        },
+        onPanResponderGrant: () => {
+          onSelect(entityRef.current);
+        },
+        onPanResponderMove: (_, gestureState) => {
+          const currentZoom = zoomRef.current;
+          const newX = Math.round(posRef.current.x + gestureState.dx / currentZoom);
+          const newY = Math.round(posRef.current.y + gestureState.dy / currentZoom);
+          onPositionChange(entityRef.current.id, newX, newY, false);
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          const currentZoom = zoomRef.current;
+          const finalX = Math.round(posRef.current.x + gestureState.dx / currentZoom);
+          const finalY = Math.round(posRef.current.y + gestureState.dy / currentZoom);
+          onPositionChange(entityRef.current.id, finalX, finalY, true);
+        },
+        onPanResponderTerminate: () => {},
+      }),
+    [onSelect, onPositionChange]
+  );
 
   const attributes = entity.attributes || [];
   const pkAttributes = attributes.filter((a) => a.isPrimaryKey || a.is_primary_key);
@@ -60,6 +78,17 @@ export function EntityNode({
     } else {
       onSelect(entity);
     }
+  }
+
+  /** Renderiza um indicador de nulabilidade inline */
+  function renderNullBadge(attr) {
+    const isNotNull = attr.isNotNull || attr.is_not_null;
+    if (!isNotNull) return null;
+    return (
+      <View style={styles.nnBadge}>
+        <Text style={styles.nnBadgeText}>NN</Text>
+      </View>
+    );
   }
 
   return (
@@ -100,7 +129,7 @@ export function EntityNode({
           </View>
         </View>
 
-        {/* Lista de Atributos com Tipos e PKs */}
+        {/* Lista de Atributos com Tipos, PKs e Nulabilidade */}
         <View style={styles.body}>
           {attributes.length === 0 ? (
             <Text style={styles.emptyAttributesText}>Sem atributos</Text>
@@ -114,6 +143,7 @@ export function EntityNode({
                   <Text style={[styles.attributeName, styles.pkNameText]} numberOfLines={1}>
                     {attr.name}
                   </Text>
+                  {renderNullBadge(attr)}
                   <Text style={styles.attributeType}>
                     {attr.dataType || attr.data_type}
                   </Text>
@@ -126,6 +156,7 @@ export function EntityNode({
                   <Text style={styles.attributeName} numberOfLines={1}>
                     {attr.name}
                   </Text>
+                  {renderNullBadge(attr)}
                   <Text style={styles.attributeType}>
                     {attr.dataType || attr.data_type}
                   </Text>
@@ -261,6 +292,19 @@ const styles = StyleSheet.create({
   pkNameText: {
     fontWeight: '700',
     color: '#FDE68A',
+  },
+  nnBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    paddingHorizontal: 3,
+    paddingVertical: 0,
+    borderRadius: 2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+  },
+  nnBadgeText: {
+    color: '#F87171',
+    fontSize: 7,
+    fontWeight: '800',
   },
   dotBullet: {
     width: 4,

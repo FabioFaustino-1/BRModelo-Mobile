@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,6 +10,12 @@ import { THEME } from '../../constants/theme.js';
 import { EntityNode, ENTITY_NODE_WIDTH } from './EntityNode.js';
 import { RelationshipLink } from './RelationshipLink.js';
 
+/**
+ * CanvasWorkspace — Área de trabalho principal do editor visual Canvas 2D.
+ * Aplica transform (translate + scale) a uma camada interna de 6000x6000.
+ *
+ * Usa refs para evitar stale closures nos PanResponders.
+ */
 export function CanvasWorkspace({
   entities = [],
   relationships = [],
@@ -37,33 +43,48 @@ export function CanvasWorkspace({
     return () => sub?.remove();
   }, []);
 
+  // Refs para valores atualizados dentro do PanResponder (evita stale closures)
   const panState = useRef({ x: panX, y: panY });
   panState.current = { x: panX, y: panY };
 
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
+  const connectingRef = useRef(isConnectingMode);
+  connectingRef.current = isConnectingMode;
+
+  const deselectRef = useRef(onDeselectAll);
+  deselectRef.current = onDeselectAll;
+
+  const viewportChangeRef = useRef(onViewportChange);
+  viewportChangeRef.current = onViewportChange;
+
   // PanResponder exclusivo para navegar pelo fundo do Canvas
-  const backgroundPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
-      },
-      onPanResponderGrant: () => {
-        if (!isConnectingMode) {
-          onDeselectAll();
-        }
-      },
-      onPanResponderMove: (_, gestureState) => {
-        const nextX = panState.current.x + gestureState.dx;
-        const nextY = panState.current.y + gestureState.dy;
-        onViewportChange(zoom, nextX, nextY, false);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const finalX = panState.current.x + gestureState.dx;
-        const finalY = panState.current.y + gestureState.dy;
-        onViewportChange(zoom, finalX, finalY, true);
-      },
-    })
-  ).current;
+  const backgroundPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+        },
+        onPanResponderGrant: () => {
+          if (!connectingRef.current) {
+            deselectRef.current();
+          }
+        },
+        onPanResponderMove: (_, gestureState) => {
+          const nextX = panState.current.x + gestureState.dx;
+          const nextY = panState.current.y + gestureState.dy;
+          viewportChangeRef.current(zoomRef.current, nextX, nextY, false);
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          const finalX = panState.current.x + gestureState.dx;
+          const finalY = panState.current.y + gestureState.dy;
+          viewportChangeRef.current(zoomRef.current, finalX, finalY, true);
+        },
+      }),
+    []
+  );
 
   // Cria mapa de entidades para lookup instantâneo O(1) pelas conexões de relacionamento
   const entityMap = new Map(entities.map((e) => [e.id, e]));
@@ -99,8 +120,10 @@ export function CanvasWorkspace({
             },
           ]}
         >
-          {/* Grid de Referência Visual (Pontos / Grade Estilo Figma) */}
+          {/* Grid de Referência Visual (Grade Estilo Figma) */}
           <View style={styles.gridPlane} pointerEvents="none">
+            {/* Grade de pontos para orientação espacial */}
+            {renderGridDots()}
             {/* Linhas de eixos de referência */}
             <View style={styles.originCrosshairH} />
             <View style={styles.originCrosshairV} />
@@ -156,6 +179,33 @@ export function CanvasWorkspace({
   );
 }
 
+/**
+ * Renderiza uma grade de pontos sutis no canvas para referência visual.
+ * Estilo inspirado no Figma e Obsidian Canvas.
+ */
+function renderGridDots() {
+  const dots = [];
+  const spacing = 100;
+  const count = 30; // 30x30 = grid de 3000x3000 pontos
+  for (let row = 0; row < count; row++) {
+    for (let col = 0; col < count; col++) {
+      dots.push(
+        <View
+          key={`dot-${row}-${col}`}
+          style={[
+            styles.gridDot,
+            {
+              left: col * spacing + 50,
+              top: row * spacing + 50,
+            },
+          ]}
+        />
+      );
+    }
+  }
+  return dots;
+}
+
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
@@ -180,6 +230,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#090D16',
     borderWidth: 1,
     borderColor: '#1E293B',
+  },
+  gridDot: {
+    position: 'absolute',
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
   },
   originCrosshairH: {
     position: 'absolute',

@@ -21,7 +21,7 @@ Isso gera barreiras para estudantes em deslocamento, salas de aula sem acesso im
 ## 3. Objetivo do MVP
 O MVP (Produto Mínimo Viável) disponibiliza uma experiência mobile enxuta, confiável e **100% offline**, permitindo:
 - **Gestão de Projetos:** Criar, listar, renomear e excluir projetos com confirmação explícita.
-- **Editor de Modelos:** Acessar projetos com visualização de entidades e relacionamentos.
+- **Editor Visual Canvas 2D:** Acessar projetos em um **Editor Visual Canvas 2D** onde o usuário pode criar, posicionar e conectar visualmente entidades em uma área de trabalho interativa com arrastar-e-soltar, zoom/pan e visualização de relacionamentos por linhas.
 - **Gestão de Entidades:** Criar, listar, renomear e excluir entidades (com deleção em cascata).
 - **Gestão de Atributos:** Adicionar, editar e remover atributos com tipos relacionais (`INTEGER`, `VARCHAR`, `TEXT`, `REAL`, `DECIMAL`, `BOOLEAN`, `DATE`, `DATETIME`), indicador visual de chave primária (`[PK]`) e obrigatoriedade (`[NOT NULL]`).
 - **Gestão de Relacionamentos:** Estabelecer associações estruturadas entre entidades do mesmo projeto com cardinalidades (`1:1`, `1:N`, `N:N`), validação de autorrelacionamento e integridade referencial.
@@ -82,9 +82,15 @@ BRMM/
     │   │   ├── EntityCard.js
     │   │   ├── AttributeItem.js
     │   │   └── RelationshipItem.js
+    │   ├── components/canvas/          # Editor Visual Canvas 2D
+    │   │   ├── EntityNode.js           # Nó visual arrastável de entidade
+    │   │   ├── RelationshipLink.js     # Linha de conexão entre entidades
+    │   │   ├── CanvasToolbar.js        # Barra de ferramentas do canvas
+    │   │   ├── CanvasWorkspace.js      # Área de trabalho com zoom/pan
+    │   │   └── SelectedElementDrawer.js # Painel de detalhes do elemento selecionado
     │   ├── screens/                    # Telas funcionais do MVP
     │   │   ├── HomeScreen.js           # Gestão de projetos
-    │   │   ├── ProjectScreen.js        # Editor do modelo (Entidades e Relacionamentos)
+    │   │   ├── ProjectScreen.js        # Editor Visual Canvas 2D (Entidades e Relacionamentos)
     │   │   └── EntityScreen.js         # Gestor de atributos de entidades
     │   ├── services/                   # Regras de negócio desacopladas
     │   │   ├── projectService.js
@@ -94,7 +100,9 @@ BRMM/
     │   ├── database/                   # Camada de persistência SQLite
     │   │   ├── index.js                # Conexão e transações
     │   │   ├── schema.js               # DDL, constraints e índices
-    │   │   ├── migrations/             # Migrações versionadas (001_initial_schema)
+    │   │   ├── migrations/             # Migrações versionadas
+    │   │   │   ├── 001_initial_schema.js
+    │   │   │   └── 002_canvas_visual_editor.js  # Migração do Editor Visual Canvas 2D
     │   │   └── repositories/           # Repositórios CRUD parametrizados
     │   ├── models/                     # Entidades de domínio (Project, Entity, Attribute, Relationship)
     │   ├── constants/                  # Tipos de dados, cardinalidades e tema visual
@@ -102,7 +110,9 @@ BRMM/
     └── tests/                          # Suítes de testes automatizados
         ├── persistence.test.js         # 15 testes de persistência SQLite
         ├── services.test.js            # 13 testes de serviços de negócio
-        └── acceptance_criteria.test.js # Teste do fluxo completo de aceitação de 15 passos
+        ├── acceptance_criteria.test.js # Teste do fluxo completo de aceitação de 15 passos
+        ├── canvas_persistence.test.js  # 3 testes de persistência do canvas (posições X/Y e viewport)
+        └── canvas_acceptance_flow.test.js # Teste integrado do fluxo completo do canvas 2D (12 passos)
 ```
 
 ---
@@ -118,11 +128,12 @@ BRMM/
 | **Camada de Serviços de Negócio (`src/services`)** | ✅ **Concluído** | Validações prévias, unicidade de nomes, proibição de autorrelacionamento e cálculo de estatísticas. |
 | **Componentes e Modais Reutilizáveis (`src/components`)** | ✅ **Concluído** | Modais de confirmação, entrada de texto, formulário de atributos e seletores de relacionamentos. |
 | **Tela de Gerenciamento de Projetos (`HomeScreen`)** | ✅ **Concluído** | Criação, listagem com estatísticas reais, exclusão com confirmação e estados vazios. |
-| **Tela do Editor de Modelo (`ProjectScreen`)** | ✅ **Concluído** | Abas de Entidades e Relacionamentos, edição de nome, exclusão com alerta em cascata. |
+| **Editor Visual Canvas 2D (`ProjectScreen`)** | ✅ **Concluído** | Editor Visual Canvas 2D com entidades arrastáveis, relacionamentos visuais por linhas, barra de ferramentas, zoom/pan e toggle para modo lista. |
+| **Editor Visual Canvas 2D (`src/components/canvas`)** | ✅ **Concluído** | 5 componentes dedicados: EntityNode, RelationshipLink, CanvasToolbar, CanvasWorkspace e SelectedElementDrawer. |
 | **Tela de Atributos da Entidade (`EntityScreen`)** | ✅ **Concluído** | Adição e edição de atributos com tipos, switches de `[PK]` e `[NOT NULL]`, badges e ordenação. |
 | **Seção Estruturada de Relacionamentos** | ✅ **Concluído** | Visualização em diagrama relacional com cardinalidades (`1:1`, `1:N`, `N:N`) e validações de integridade. |
 | **Navegação Mobile Nativa** | ✅ **Concluído** | Pilha de navegação em JavaScript puro com suporte ao botão Voltar físico do Android. |
-| **Testes Automatizados (29 cenários)** | ✅ **Concluído** | 29 testes aprovados (persistência, serviços e fluxo completo de aceitação de 15 passos). |
+| **Testes Automatizados (33 cenários)** | ✅ **Concluído** | 33 testes aprovados (persistência, serviços, canvas e fluxo completo de aceitação). |
 | **Compatibilidade Expo SDK 58 e Android** | ✅ **Concluído** | 20/20 verificações aprovadas no `npx expo-doctor` e bundle Android validado pelo Metro. |
 
 ---
@@ -169,7 +180,7 @@ BRMM/
 
 ## 9. Suíte de Testes Automatizados
 
-O BRMM conta com **29 testes automatizados** divididos em três suítes de alta performance executadas via `node --test`:
+O BRMM conta com **33 testes automatizados** divididos em cinco suítes de alta performance executadas via `node --test`:
 
 ```bash
 cd brmodelo-mobile
@@ -188,13 +199,19 @@ npm test
    - Proibição de autorrelacionamento no MVP e exigência de ao menos 2 entidades.
 3. `tests/acceptance_criteria.test.js` (1 teste integrado de 15 passos):
    - Execução do fluxo completo de aceitação do MVP de ponta a ponta: criação de projeto -> entidades -> atributos com PK -> relacionamentos -> edição -> encerramento do app -> reabertura com persistência conferida -> exclusão em cascata.
+4. `tests/canvas_persistence.test.js` (3 testes):
+   - Persistência de posições X/Y das entidades no canvas.
+   - Persistência do estado de viewport (zoom e pan) entre sessões.
+5. `tests/canvas_acceptance_flow.test.js` (1 teste integrado de 12 passos):
+   - Fluxo completo do Editor Visual Canvas 2D de ponta a ponta: criação de entidades no canvas -> posicionamento via arrastar-e-soltar -> conexão de relacionamentos visuais -> zoom/pan -> persistência e reabertura.
 
 ---
 
 ## 10. Funcionalidades Fora do Escopo do MVP (Futuras Extensões)
 
 - Geração e exportação de scripts DDL SQL (`CREATE TABLE`, etc.).
-- Editor com canvas gráfico livre bidimensional e arrastar-e-soltar.
+- Pinch-to-zoom nativo com gestos multi-toque.
+- Notação Crow's foot (pé de galinha) para cardinalidades nos relacionamentos visuais.
 - Sincronização em nuvem e autenticação de usuários.
 - Compartilhamento e colaboração multiusuário em tempo real.
 - Engenharia reversa a partir de bases de dados externas.
