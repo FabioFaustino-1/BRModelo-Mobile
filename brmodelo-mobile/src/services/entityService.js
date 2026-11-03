@@ -9,12 +9,12 @@ import { validateEntityName } from '../utils/validation.js';
 
 /**
  * Cria uma nova entidade em um projeto após validações.
- * @param {{ projectId: string, name: string }} data
+ * @param {{ projectId: string, name: string, positionX?: number, positionY?: number }} data
  * @param {object} [customDb]
  * @returns {Promise<import('../models/Entity.js').Entity>}
  */
 export async function createEntity(data, customDb = null) {
-  const { projectId, name } = data || {};
+  const { projectId, name, positionX, positionY } = data || {};
   if (!projectId) {
     throw new Error('Identificador do projeto é obrigatório.');
   }
@@ -30,7 +30,23 @@ export async function createEntity(data, customDb = null) {
     throw new Error(validation.error);
   }
 
-  return entityRepository.createEntity({ projectId, name: name.trim() }, customDb);
+  // Se não foi informada coordenada explícita, calcula posição em grade
+  const index = existingEntities.length;
+  const defaultX = 60 + (index % 2) * 240;
+  const defaultY = 60 + Math.floor(index / 2) * 200;
+
+  const finalX = positionX !== undefined ? Number(positionX) : defaultX;
+  const finalY = positionY !== undefined ? Number(positionY) : defaultY;
+
+  return entityRepository.createEntity(
+    {
+      projectId,
+      name: name.trim(),
+      positionX: finalX,
+      positionY: finalY,
+    },
+    customDb
+  );
 }
 
 /**
@@ -94,6 +110,18 @@ export async function renameEntity(id, newName, customDb = null) {
   }
 
   return entityRepository.updateEntity(id, { name: newName.trim() }, customDb);
+}
+
+/**
+ * Atualiza as coordenadas (x, y) de uma entidade no canvas e persiste no SQLite.
+ * @param {string} id
+ * @param {number} x
+ * @param {number} y
+ * @param {object} [customDb]
+ * @returns {Promise<import('../models/Entity.js').Entity>}
+ */
+export async function updateEntityPosition(id, x, y, customDb = null) {
+  return entityRepository.updateEntityPosition(id, x, y, customDb);
 }
 
 /**

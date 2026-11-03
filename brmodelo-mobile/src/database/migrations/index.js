@@ -4,6 +4,7 @@
  */
 import { CREATE_MIGRATIONS_TABLE, TABLES } from '../schema.js';
 import { migration001 } from './001_initial_schema.js';
+import { migration002 } from './002_canvas_visual_editor.js';
 import { getCurrentTimestamp } from '../../utils/date.js';
 
 /**
@@ -11,6 +12,7 @@ import { getCurrentTimestamp } from '../../utils/date.js';
  */
 export const MIGRATIONS = [
   migration001,
+  migration002,
 ];
 
 /**

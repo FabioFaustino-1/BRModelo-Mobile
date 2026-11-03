@@ -14,13 +14,13 @@ function resolveDb(customDb) {
 
 /**
  * Cria uma nova entidade vinculada a um projeto.
- * @param {{ projectId: string, name: string, id?: string }} entityData
+ * @param {{ projectId: string, name: string, positionX?: number, positionY?: number, id?: string }} entityData
  * @param {object} [customDb]
  * @returns {Promise<Entity>}
  */
 export async function createEntity(entityData, customDb = null) {
   const db = resolveDb(customDb);
-  const { projectId, project_id, name, id } = entityData || {};
+  const { projectId, project_id, name, positionX, position_x, positionY, position_y, id } = entityData || {};
   const finalProjectId = projectId || project_id;
 
   if (!finalProjectId) {
@@ -33,16 +33,33 @@ export async function createEntity(entityData, customDb = null) {
     throw new Error(basicValidation.error);
   }
 
-  const entity = new Entity({ id, projectId: finalProjectId, name });
+  const finalX = positionX !== undefined ? positionX : (position_x !== undefined ? position_x : 100);
+  const finalY = positionY !== undefined ? positionY : (position_y !== undefined ? position_y : 100);
+
+  const entity = new Entity({
+    id,
+    projectId: finalProjectId,
+    name,
+    positionX: finalX,
+    positionY: finalY,
+  });
   const row = entity.toDbRow();
 
   const query = `
-    INSERT INTO ${TABLES.ENTITIES} (id, project_id, name, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?);
+    INSERT INTO ${TABLES.ENTITIES} (id, project_id, name, position_x, position_y, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?);
   `;
 
   try {
-    await db.runAsync(query, [row.id, row.project_id, row.name, row.created_at, row.updated_at]);
+    await db.runAsync(query, [
+      row.id,
+      row.project_id,
+      row.name,
+      row.position_x,
+      row.position_y,
+      row.created_at,
+      row.updated_at,
+    ]);
   } catch (err) {
     if (err.message && (err.message.includes('UNIQUE') || err.message.includes('unique'))) {
       throw new Error(`Já existe uma entidade chamada '${name.trim()}' neste projeto.`);
@@ -132,6 +149,38 @@ export async function updateEntity(id, updateData, customDb = null) {
   }
 
   existing.name = name.trim();
+  existing.updatedAt = now;
+  return existing;
+}
+
+/**
+ * Atualiza as coordenadas visuais da entidade no Canvas.
+ * @param {string} id
+ * @param {number} positionX
+ * @param {number} positionY
+ * @param {object} [customDb]
+ * @returns {Promise<Entity>}
+ */
+export async function updateEntityPosition(id, positionX, positionY, customDb = null) {
+  if (!id) {
+    throw new Error('Identificador da entidade é obrigatório para mover no canvas.');
+  }
+  const db = resolveDb(customDb);
+  const existing = await getEntityById(id, db);
+  if (!existing) {
+    throw new Error(`Entidade com id '${id}' não encontrada.`);
+  }
+
+  const now = getCurrentTimestamp();
+  const query = `
+    UPDATE ${TABLES.ENTITIES}
+    SET position_x = ?, position_y = ?, updated_at = ?
+    WHERE id = ?;
+  `;
+  await db.runAsync(query, [Number(positionX), Number(positionY), now, id]);
+
+  existing.positionX = Number(positionX);
+  existing.positionY = Number(positionY);
   existing.updatedAt = now;
   return existing;
 }

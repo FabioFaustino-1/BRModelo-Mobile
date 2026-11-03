@@ -9,17 +9,25 @@ import { validateProjectName } from '../utils/validation.js';
 
 /**
  * Cria um novo projeto após validar seu nome.
- * @param {{ name: string }} data
+ * @param {{ name: string, viewportZoom?: number, viewportX?: number, viewportY?: number }} data
  * @param {object} [customDb]
  * @returns {Promise<import('../models/Project.js').Project>}
  */
 export async function createProject(data, customDb = null) {
-  const { name } = data || {};
+  const { name, viewportZoom, viewportX, viewportY } = data || {};
   const validation = validateProjectName(name);
   if (!validation.isValid) {
     throw new Error(validation.error);
   }
-  return projectRepository.createProject({ name: name.trim() }, customDb);
+  return projectRepository.createProject(
+    {
+      name: name.trim(),
+      viewportZoom,
+      viewportX,
+      viewportY,
+    },
+    customDb
+  );
 }
 
 /**
@@ -85,6 +93,17 @@ export async function renameProject(id, newName, customDb = null) {
     throw new Error(validation.error);
   }
   return projectRepository.updateProject(id, { name: newName.trim() }, customDb);
+}
+
+/**
+ * Salva a visualização do Canvas (zoom e coordenadas de navegação).
+ * @param {string} id
+ * @param {{ zoom: number, x: number, y: number }} viewport
+ * @param {object} [customDb]
+ * @returns {Promise<import('../models/Project.js').Project>}
+ */
+export async function saveProjectViewport(id, viewport, customDb = null) {
+  return projectRepository.updateProjectViewport(id, viewport, customDb);
 }
 
 /**
