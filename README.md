@@ -33,11 +33,11 @@ O MVP (Produto Mínimo Viável) disponibiliza uma experiência mobile enxuta, co
 A documentação completa de engenharia de software do BRMM está organizada no diretório [`docs/`](./docs/):
 
 1. 📄 [**01. Project Charter**](./docs/01-project-charter.md) — Visão geral, contexto, objetivos, público-alvo, escopo do MVP, restrições e premissas.
-2. 📄 [**02. User Stories**](./docs/02-user-stories.md) — Histórias de usuário com formato ágil (`US-01` a `US-05`), personas e benefícios de negócio.
-3. 📄 [**03. Requirements Specification**](./docs/03-requirements.md) — Requisitos funcionais (`RF-01` a `RF-08`) e não funcionais (`RNF-01` a `RNF-06`) com matriz de rastreabilidade.
+2. 📄 [**02. User Stories**](./docs/02-user-stories.md) — Histórias de usuário com formato ágil (`US-01` a `US-06`), personas e benefícios de negócio.
+3. 📄 [**03. Requirements Specification**](./docs/03-requirements.md) — Requisitos funcionais (`RF-01` a `RF-10`) e não funcionais (`RNF-01` a `RNF-06`) com matriz de rastreabilidade.
 4. 📄 [**04. Use Cases**](./docs/04-use-cases.md) — Caso de uso principal detalhado (`UC-01`), fluxos principal, alternativos e exceções.
 5. 📄 [**05. Software Architecture**](./docs/05-architecture.md) — Diagramas conceituais (Mermaid), arquitetura em camadas, schema relacional do SQLite e DevSecOps.
-6. 📄 [**06. Acceptance Criteria & Definition of Done**](./docs/06-acceptance-criteria.md) — Critérios de aceite objetivos (`CA-01` a `CA-07`) e checklist de Definition of Done (DoD).
+6. 📄 [**06. Acceptance Criteria & Definition of Done**](./docs/06-acceptance-criteria.md) — Critérios de aceite objetivos (`CA-01` a `CA-09`) e checklist de Definition of Done (DoD).
 
 ---
 
@@ -210,7 +210,6 @@ npm test
 ## 10. Funcionalidades Fora do Escopo do MVP (Futuras Extensões)
 
 - Geração e exportação de scripts DDL SQL (`CREATE TABLE`, etc.).
-- Pinch-to-zoom nativo com gestos multi-toque.
 - Notação Crow's foot (pé de galinha) para cardinalidades nos relacionamentos visuais.
 - Sincronização em nuvem e autenticação de usuários.
 - Compartilhamento e colaboração multiusuário em tempo real.
